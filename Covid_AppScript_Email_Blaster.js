@@ -1,23 +1,32 @@
-// Triggers everyday @ 12PM. 
+// Triggers everyday @ 5PM EST. 
 function triggerEmail() {
   ScriptApp.newTrigger('sendEmail')
   .timeBased()
   .everyDays(1)
-  .atHour(12)
+  .atHour(17)
   .create()
 }
 
-// Calculate the rate of change in cases.
-function rateOfChange(curr, prev) {
-  if (curr/prev === 0) return "NA"
-  else if (prev === 0) return "NA"
-  else {
-    var calc = (((curr/prev)-1) * 100).toFixed(2);
-    var calcStr = calc.toLocaleString('en');
-    if (calc > 0) return calcStr + "% ↑"
-    else return calcStr + "% ↓"
-  }
+
+
+// Helper function to convert a calculation to a comma separated string with 'up'/'down' indicators.
+function convert(val){
+  if (val > 0) return val.toLocaleString('en') + "% ↑";
+  else return val.toLocaleString('en') + "% ↓";
 }
+
+
+
+
+// Calculate the rate of change in cases.
+function change(curr, prev) {
+  if (curr/prev === 0) return 0
+  else if (prev === 0) return 0
+  else return (((curr/prev)-1) * 100).toFixed(2);
+}
+
+
+
 
 // Returns an object with all state information. 
 function getDataStates(date){
@@ -26,22 +35,26 @@ function getDataStates(date){
   var json = response.getContentText();
   var data = JSON.parse(json);
   var idx = 0;
-  var stateInfo = {}
-  var states = []
+  var stateInfo = []
   
   while (data[idx].date === date){
-    states.push(data[idx].state);
-    stateInfo[data[idx].state] = {"positive":data[idx].positiveIncrease,
-                                  "deaths":data[idx].deathIncrease, 
-                                  "previousPOS": data[idx+55].positiveIncrease};
+    stateInfo.push({"state":data[idx].state,
+                    "positive":data[idx].positiveIncrease,
+                    "deaths":data[idx].deathIncrease, 
+                    "ROC": change(data[idx].positiveIncrease, data[idx+55].positiveIncrease)});
     idx++;
   }
-  stateInfo["states"] = states;
+  // Sort object based on rate of change. 
+  stateInfo.sort((a,b) => {return b.ROC - a.ROC;})
   return stateInfo
 }
 
+
+
+
 // Returns an html with US only informaiton. 
 function getData() {
+
   var url = "https://covidtracking.com/api/us/daily";
   var response = UrlFetchApp.fetch(url);
   var json = response.getContentText();
@@ -68,28 +81,43 @@ function getData() {
   // Replace table with the appropriate values. 
   var htmlOutput = HtmlService.createHtmlOutputFromFile("index");
   var message = htmlOutput.getContent();
+  
+  // Replace static fields in HTML with data from API. 
   message = message.replace("%positive", positive.toLocaleString('en'));
-  message = message.replace("%positivePrev", rateOfChange(positive, positivePrev));
   message = message.replace("%hospitalized", hospitalized.toLocaleString('en'));
-  message = message.replace("%hospitalizedPrev", rateOfChange(hospitalized, hospitalizedPrev));
   message = message.replace("%deaths", deaths.toLocaleString('en'));
-  message = message.replace("%deathsPrev", rateOfChange(deaths, deathsPrev));
+  
+  message = message.replace("%positivePrev", convert(change(positive, positivePrev)));
+  message = message.replace("%hospitalizedPrev", convert(change(hospitalized, hospitalizedPrev)));
+  message = message.replace("%deathsPrev", convert(change(deaths, deathsPrev)));
   
   message = message.replace("%totalPositive", totalPositive.toLocaleString('en'));
   message = message.replace("%totalDeaths", totalDeaths.toLocaleString('en'));
   message = message.replace("%totalHospitalized", totalHospitalized.toLocaleString('en'));
   message = message.replace("%icu", icu.toLocaleString('en'));
   message = message.replace("%ventilator", ventilator.toLocaleString('en'));
-
+  
   // Get Info for All States
   var stateInfo = getDataStates(data[0].date);
-  for (i of stateInfo["states"]){
-    message = message.replace("%"+i+"Positive", stateInfo[i].positive.toLocaleString('en'));
-    message = message.replace("%"+i+"Death", stateInfo[i].deaths.toLocaleString('en'));
-    message = message.replace("%"+i+"ROI", rateOfChange(stateInfo[i].positive, stateInfo[i].previousPOS)); 
-  }
-  return message
+
+  // Create a string 
+  var buildHTML = '<h3>US COVID Stats Per State</h3><table style="text-align:left;width:50%;border-collapse:collapse;border:1px solid #e3e3e3;"><tr style="background-color:#e7edf0"><th>State</th><th>Cases</th><th>Deaths</th><th>ROC (Desc)</th></tr>';
+
+  stateInfo.forEach((rec) => {
+    buildHTML += '<tr>';
+    buildHTML += '<td>' + Lookup(rec.state) + '</td>';
+    buildHTML += '<td>' + rec.positive.toLocaleString('en') + '</td>';
+    buildHTML += '<td>' + rec.deaths.toLocaleString('en') + '</td>';
+    buildHTML += '<td>' + convert(rec.ROC) + '</td>';
+    buildHTML += '</tr>';
+  })
+  buildHTML += '</table><br><Footer><i>Reported by <a href="https://covidtracking.com/">The COVID Tracking Project</a>.</i></Footer>';
+
+  return message + buildHTML
 }
+
+
+
 
 // Send out email.
 function sendEmail() {
