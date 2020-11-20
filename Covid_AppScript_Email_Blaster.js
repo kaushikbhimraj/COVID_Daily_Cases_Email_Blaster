@@ -11,7 +11,8 @@ function triggerEmail() {
 
 // Helper function to convert a calculation to a comma separated string with 'up'/'down' indicators.
 function convert(val){
-  if (val > 0) return val.toLocaleString('en') + "% ↑";
+  if (val === Number.MAX_VALUE) return "Inf" + " ↑" 
+  else if (val > 0) return val.toLocaleString('en') + "% ↑";
   else return val.toLocaleString('en') + "% ↓";
 }
 
@@ -20,7 +21,8 @@ function convert(val){
 
 // Calculate the rate of change in cases.
 function change(curr, prev) {
-  if (prev === 0) return 0
+  if (prev === 0 && curr > 0) return Number.MAX_VALUE;
+  else if (prev === 0 && curr === 0) return 0
   else return (((curr-prev)/prev) * 100).toFixed(2);
 }
 
@@ -119,7 +121,7 @@ function getData() {
 
 // Send out email.
 function sendEmail() {
-  GmailApp.sendEmail("kaushik.bhimraj@gmail.com", "COVID Daily Update", "This is an HTML Table", {
-    bcc: "abhi.bhimraj@gmail.com, bhattacharyasyl@gmail.com, kbhimraj@yahoo.com, ctrlaltdel1789@gmail.com", 
+  GmailApp.sendEmail("<email address>", "COVID Daily Update", "This is an HTML Table", {
+    //bcc: "email1@yahoo.com, email2@gmail.com", 
     htmlBody: getData()})
 }
