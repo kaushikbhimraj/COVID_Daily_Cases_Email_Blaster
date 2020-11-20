@@ -1,4 +1,4 @@
-// Triggers everyday @ 5PM EST. 
+// Triggers everyday @ 12PM. 
 function triggerEmail() {
   ScriptApp.newTrigger('sendEmail')
   .timeBased()
@@ -20,11 +20,9 @@ function convert(val){
 
 // Calculate the rate of change in cases.
 function change(curr, prev) {
-  if (curr/prev === 0) return 0
-  else if (prev === 0) return 0
-  else return (((curr/prev)-1) * 100).toFixed(2);
+  if (prev === 0) return 0
+  else return (((curr-prev)/prev) * 100).toFixed(2);
 }
-
 
 
 
@@ -101,7 +99,7 @@ function getData() {
   var stateInfo = getDataStates(data[0].date);
 
   // Create a string 
-  var buildHTML = '<h3>US COVID Stats Per State</h3><table style="text-align:left;width:50%;border-collapse:collapse;border:1px solid #e3e3e3;"><tr style="background-color:#e7edf0"><th>State</th><th>Cases</th><th>Deaths</th><th>ROC (Desc)</th></tr>';
+  var buildHTML = '<h3>US COVID Stats Per State</h3><table style="text-align:left;width:75%;border-collapse:collapse;border:1px solid #e3e3e3;"><tr style="background-color:#e7edf0"><th>State</th><th>Cases</th><th>Deaths</th><th>ROC (Desc)</th></tr>';
 
   stateInfo.forEach((rec) => {
     buildHTML += '<tr>';
@@ -121,5 +119,7 @@ function getData() {
 
 // Send out email.
 function sendEmail() {
-  GmailApp.sendEmail("To", "COVID Daily Update", "This is an HTML Table", {htmlBody: getData()})
+  GmailApp.sendEmail("kaushik.bhimraj@gmail.com", "COVID Daily Update", "This is an HTML Table", {
+    bcc: "abhi.bhimraj@gmail.com, bhattacharyasyl@gmail.com, kbhimraj@yahoo.com, ctrlaltdel1789@gmail.com", 
+    htmlBody: getData()})
 }
